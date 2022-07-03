@@ -1,0 +1,250 @@
+---
+title: "Boston Housing Project"
+author: "Shrey Agarwal"
+date: "18/12/2021"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1 - Exploring the data
+
+In this Question we are going to Explore the given boston Housing dataset using exploratory data analysis and perform a statistical summary to find any patterns between the variables. 
+
+
+```{r}
+# importing the dataset and providing a summary
+require(devtools)
+library(ggplot2)
+library(dplyr)
+install_github("ropensci/plotly")
+housingdata<- read.csv("housing.csv")
+Housing<- as.data.frame(housingdata)
+summary(Housing)
+str(Housing)
+
+```
+We observe that most of the data in ZN, CHAS is 0. That's why they may not be good predicting variables for other data. We also see that all the data is numerical which is beneficial for classification. Now we will see their boxplots to find how many outliers are there in the data. 
+
+```{r }
+# boxplot
+library(cowplot)
+A= ggplot(data = Housing, mapping = aes(y =CRIM))+ geom_boxplot(color="blue",outlier.color="red")
+B= ggplot(data = Housing, mapping = aes(y =CR01))+ geom_boxplot(color="blue",outlier.color="red")
+C=ggplot(data = Housing, mapping = aes(y =ZN))+ geom_boxplot(color="blue",outlier.color="red")
+D=ggplot(data = Housing, mapping = aes(y =INDUS))+ geom_boxplot(color="blue",outlier.color="red")
+E=ggplot(data = Housing, mapping = aes(y =CHAS))+ geom_boxplot(color="blue",outlier.color="red")
+J=ggplot(data = Housing, mapping = aes(y =NOX))+ geom_boxplot(color="blue",outlier.color="red")
+G=ggplot(data = Housing, mapping = aes(y =RM))+ geom_boxplot(color="blue",outlier.color="red")
+H=ggplot(data = Housing, mapping = aes(y =AGE))+ geom_boxplot(color="blue",outlier.color="red")
+I=ggplot(data = Housing, mapping = aes(y =DIS))+ geom_boxplot(color="blue",outlier.color="red")
+K=ggplot(data = Housing, mapping = aes(y =RAD))+ geom_boxplot(color="blue",outlier.color="red")
+L=ggplot(data = Housing, mapping = aes(y =TAX))+ geom_boxplot(color="blue",outlier.color="red")
+M=ggplot(data = Housing, mapping = aes(y =PTRATIO))+ geom_boxplot(color="blue",outlier.color="red")
+N=ggplot(data = Housing, mapping = aes(y =LSTAT))+ geom_boxplot(color="blue",outlier.color="red")
+O=ggplot(data = Housing, mapping = aes(y =MEDV))+ geom_boxplot(color="blue",outlier.color="red")
+plot_grid(A,B,C,D,E,J,G,H,I,K,L,M,N, labels = "AUTO")
+
+```
+We will now look look for correlation in our dataset using corrplot. This will help us in predicting our data for regression and we might be able to find some insights too.
+``` {r}
+# Corrplot
+library(corrplot)
+Correlation=cor(Housing)
+corrplot(Correlation, method ="color")
+```
+We observe that there is 0.91 correlation between RAD and TAX. Let's plot it to see how it is and try to see if this is related to crime rate as well
+```{r}
+# plotting the RAD vs TAx
+x<- plot(Housing$RAD ~ Housing$TAX, pch = 21, bg = "lightblue", col = "black")
+y<- lm(Housing$RAD~Housing$TAX)
+abline(y)
+#require(rCharts)
+#n1 = nPlot(RAD ~ TAX, group = 'CR01', type = 'multiBarChart', data = Housing)
+#n1
+```
+We can't deduce much from the graph but we did see that the in some cases places with high Index of accessibility to radial highways has higher crime rate.
+
+## Question 2 - Develop a Regression Model for MEDV
+
+First we will take a look at MEDV 
+```{r}
+# Density plot for MEDV variable
+x<- Housing$MEDV
+h<-hist(Housing$MEDV, breaks=10, col="red", xlab="Median value of owner-occupied homes in $1000s",main="Density")
+xfit<-seq(min(x),max(x),length=40)
+yfit<-dnorm(xfit,mean=mean(x),sd=sd(x))
+yfit <- yfit*diff(h$mids[1:2])*length(x)
+lines(xfit, yfit, col="blue", lwd=2)
+```
+We see that the data is normally distributed, therefore we won't have any problem in predicting the variable. We will take a look at the the corrplot again to find significant correlation with MEDV variable. Since a model with high number of predictors is not significant, we will try to eliminate those from the start
+
+From the corplot,we observe many variables that are highly negatively correlated with MEDV  which include LSTAT, PTRATIO, INDUS and TAX and is positively correlated with RM. We will use these variables for the regression models.
+
+We will create both linear and non linear models and check which has better goodness to fit and performance. we will use PRESS (sum of squared cross-validated residuals)and RMSE(Root Mean Square Error) to compare the models.
+### Model 1
+``` {r}
+# running a linear regression model on MEDV variable
+n = nrow(Housing)
+cv_res1 = vector(length=n)
+for(i in 1:n){
+	fiti = lm(MEDV ~ LSTAT+PTRATIO+TAX+RM+INDUS  , data=Housing[-i,])
+	predi = predict(fiti, newdata=Housing[i,])
+	cv_res1[i] = Housing$MEDV[i] - predi
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS1 = sum(cv_res1^2)
+RMSE1 = sqrt(PRESS1/n)
+summary(fiti)
+```
+For the next model we will just keep the negative correlations as predictors
+### Model 2
+```{r}
+# running a linear regression model on MEDV variable
+cv_res2 = vector(length=n)
+for(i in 1:n){
+	fiti2 = lm(MEDV ~ LSTAT+PTRATIO+TAX+INDUS  , data=Housing[-i,])
+	predi2 = predict(fiti2, newdata=Housing[i,])
+	cv_res2[i] = Housing$MEDV[i] - predi2
+}
+# PRESS is sum of squared cross-validated residuals
+# Finding PRESS, RMSE and R2 value for the model
+PRESS2 = sum(cv_res2^2)
+RMSE2 = sqrt(PRESS2/n)
+```
+For the next model we will remove TAX and INDUS since their P value is quite high 
+
+### Model 3
+```{r}
+# running a linear regression model on MEDV variable
+cv_res3 = vector(length=n)
+for(i in 1:n){
+	fiti3 = lm(MEDV ~ LSTAT+PTRATIO , data=Housing[-i,])
+	predi3 = predict(fiti3, newdata=Housing[i,])
+	cv_res3[i] = Housing$MEDV[i] - predi3
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS3 = sum(cv_res3^2)
+RMSE3 = sqrt(PRESS3/n)
+summary(fiti3)
+```
+We will now try to iterate the 1st model, just without the INDUS and TAX.
+### Model 4
+```{r}
+# running a linear regression model on MEDV variable
+cv_res4 = vector(length=n)
+for(i in 1:n){
+	fiti4 = lm(MEDV ~ RM+LSTAT+PTRATIO , data=Housing[-i,])
+	predi4 = predict(fiti4, newdata=Housing[i,])
+	cv_res4[i] = Housing$MEDV[i] - predi4
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS4 = sum(cv_res4^2)
+RMSE4 = sqrt(PRESS4/n)
+summary(fiti4)
+dv<- data.frame(PRESS=c(PRESS1,PRESS2,PRESS3,PRESS4),RMSE=c(RMSE1,RMSE2,RMSE3,RMSE4))
+dv
+par(mfrow = c(2, 2))
+fit2 <- lm(MEDV ~ LSTAT+PTRATIO+RM , data = Housing)
+summary(fit2)
+# Plotting the linear equation on MEDV
+plot(fit2)
+ggplot(Housing, aes(LSTAT+PTRATIO+RM, MEDV) ) +
+    geom_point() +
+    stat_smooth(method = lm, formula = y ~ x)
+```
+For a good regression model, we need Goodness to fit and high performance for which we tried 4 linear models and found the 4th model to be the best fit since it has the least value for PRESS and RMSE, which is ideal for the model. It also has the highest Multiple R-squared:  0.6088,	Adjusted R-squared:  0.6073 which we need for the model.
+
+From the plotted graphs above, we can see that a polynomial regression model could be better for finding a better model, since in 
+Residual vs Fitted plot - Some values are above the median line 
+Normal Q-Q - the end values divert from the linear nine.
+The good thing is the values is scale- location is quite diversified in the plot.
+So, now we will look at non-linear polynomial models. In the first model we will take previous best model for polynomial.
+### Model 5
+```{r}
+# running a linear regression model on MEDV variable
+cv_res5 = vector(length=n)
+for(i in 1:n){
+	fiti5 = lm(MEDV ~ poly(LSTAT+PTRATIO+RM, 5, raw = TRUE), data=Housing[-i,])
+	predi5 = predict(fiti5, newdata=Housing[i,])
+	cv_res5[i] = Housing$MEDV[i] - predi5
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS5 = sum(cv_res5^2)
+RMSE5 = sqrt(PRESS5/n)
+```
+The model improved in terms of R2 value but not in terms of PRESS, therefore we will try without the positively correlated value and check.
+### Model 6
+```{r}
+# running a non-linear regression model on MEDV variable
+cv_res6 = vector(length=n)
+for(i in 1:n){
+	fiti6 = lm(MEDV ~ poly(LSTAT+PTRATIO, 5, raw = TRUE), data=Housing[-i,])
+	predi6 = predict(fiti6, newdata=Housing[i,])
+	cv_res6[i] = Housing$MEDV[i] - predi6
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS6 = sum(cv_res6^2)
+RMSE6 = sqrt(PRESS6/n)
+```
+The model improved quite Significantly in terms of everything PRESS6 = 13184, RMSE = 5.1
+and R2 = 0.7. Now we will try with just LSTAT to see if it improves.
+### Model 7
+```{r}
+# running a non-linear regression model on MEDV variable
+cv_res7 = vector(length=n)
+for(i in 1:n){
+	fiti7 = lm(MEDV ~ poly(LSTAT, 5, raw = TRUE), data=Housing[-i,])
+	predi7 = predict(fiti7, newdata=Housing[i,])
+	cv_res7[i] = Housing$MEDV[i] - predi7
+}
+# Finding PRESS, RMSE and R2 value for the model
+PRESS7 = sum(cv_res7^2)
+RMSE7 = sqrt(PRESS7/n)
+```
+The model shifted to the negative side, so we will stop our analysis for finding a new model and will consider the 6th model to be the best fit. Let's check it in a plot
+```{r}
+# plotting the non-linear equation on MEDV
+ggplot(Housing, aes(LSTAT+PTRATIO, MEDV) ) +
+  geom_point() +
+  stat_smooth(method = lm, formula = y ~ poly(x, 5, raw = TRUE))
+```
+
+## Classification Model for predicting per capita crime rate
+
+First We will split the dataset into two parts- Test Dataset and Train Dataset and then we will use logistic regression for Classification of crime rate. Here we are given a dummy variable CR01 which divides CRIM to 0 or 1 depending on the frequency of per capita crime rate(=1 if above median; 0 otherwise) which we will use. Then we will analyze the variable.
+For the model we will use use NOX, AGE, DIS and RAD as predictor variables since they have  the highest correlation with CR01. From then we will use leave one out cross validation to further improve our model.
+```{r}
+set.seed(599)
+# splitting the data
+testindex=sample(1:n,n/3)
+HouseTest= Housing[testindex,]
+HouseTrain = Housing[-testindex,]
+# running a logarithmic(glm model) regression on CR01
+train_glm=glm(CR01~DIS+RAD+TAX+NOX+MEDV,family=binomial,data=HouseTrain)
+testprob1=predict(train_glm,HouseTest,type="response")
+testpred1=rep("Low",length=length(testprob1))
+testpred1[testprob1>0.5]="High"
+table(HouseTest$CR01, testpred1)
+```
+
+```{r}
+train_glm2=glm(CR01~RAD+TAX+NOX,family=binomial,data=HouseTrain)
+testprob2=predict(train_glm2,HouseTest,type="response")
+testpred2=rep("Low",length=length(testprob2))
+testpred2[testprob2>0.5]="High"
+# confusion matrix
+con<-table(HouseTest$CR01, testpred2)
+# ROC plot
+library(pROC)
+test_roc<- roc(HouseTest$CR01~ testprob2,plot=TRUE,print.auc = TRUE)
+Truepositiverate <- con[2,2]/(con[2,2]+con[2,1])
+Falsepositiverate <- con[1,2]/(con[1,1]+con[1,2])
+
+```
+We tried different models to achieve precision and came up with a logarithmic regression model with 'RAD', 'TAX', 'NOX'. The confusion matrix shows that the model is not very good i.e. has low sensitivity and specificity.With respect to that the ROC curve also shows that the model can have few improvement with area under the curve to be 0.966 and more the area under the curve (AUC), better is the predicted model.
